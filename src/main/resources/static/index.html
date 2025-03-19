@@ -10,11 +10,27 @@
         button { background: #5469d4; color: #ffffff; padding: 12px 16px; border: none; border-radius: 4px; cursor: pointer; }
         #payment-message { color: #1a1a1a; display: none; }
         .spinner { display: none; }
+        .tab {
+            padding: 10px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .active-tab {
+            background-color: #5469d4;
+            color: white;
+        }
     </style>
 </head>
 <body>
     <h1>Stripe Payment Demo</h1>
-    <form id="payment-form">
+    
+    <div class="tabs">
+        <button class="tab active-tab" onclick="showTab('oneTime')">One-Time Payment</button>
+        <button class="tab" onclick="showTab('subscription')">Subscription</button>
+    </div>
+
+    <!-- One-Time Payment Form -->
+    <form id="payment-form" style="display: block;">
         <input type="number" id="amount" placeholder="Amount in cents (e.g., 2000 for $20.00)" required>
         <div id="card-element"></div>
         <button id="submit">
@@ -24,8 +40,34 @@
         <div id="payment-message"></div>
     </form>
 
+    <!-- Subscription Form -->
+    <form id="subscription-form" style="display: none;">
+        <input type="email" id="email" placeholder="Email address" required>
+        <select id="price-id" required>
+            <option value="stripe.product1.id">Basic Plan ($10/month)</option>
+            <option value="stripe.product2.id">Premium Plan ($20/month)</option>
+        </select>
+        <button type="submit">Subscribe</button>
+        <div id="subscription-message"></div>
+    </form>
+
     <script>
         const stripe = Stripe('your_publishable_key_here'); // Replace with your Stripe publishable key
+        
+        // Tab switching
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active-tab'));
+            document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active-tab');
+            
+            if (tabName === 'oneTime') {
+                document.getElementById('payment-form').style.display = 'block';
+                document.getElementById('subscription-form').style.display = 'none';
+            } else {
+                document.getElementById('payment-form').style.display = 'none';
+                document.getElementById('subscription-form').style.display = 'block';
+            }
+        }
+
         const elements = stripe.elements();
         const cardElement = elements.create('card');
         cardElement.mount('#card-element');
@@ -63,6 +105,32 @@
                     document.getElementById('payment-message').textContent = 'Payment successful!';
                     document.getElementById('payment-message').style.display = 'block';
                 }
+            }
+        });
+
+        // Subscription handling
+        document.getElementById('subscription-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const priceId = document.getElementById('price-id').value;
+            
+            try {
+                const response = await fetch('/api/subscriptions/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `email=${encodeURIComponent(email)}&priceId=${encodeURIComponent(priceId)}`
+                });
+
+                if (!response.ok) throw new Error('Subscription failed');
+                
+                const subscriptionId = await response.text();
+                document.getElementById('subscription-message').textContent = 
+                    `Subscription created successfully! ID: ${subscriptionId}`;
+            } catch (error) {
+                document.getElementById('subscription-message').textContent = 
+                    `Error: ${error.message}`;
             }
         });
     </script>
