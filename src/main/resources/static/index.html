@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stripe Payment Demo</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
+        #payment-form { padding: 20px; border: 1px solid #ccc; border-radius: 4px; }
+        #card-element { margin: 20px 0; }
+        button { background: #5469d4; color: #ffffff; padding: 12px 16px; border: none; border-radius: 4px; cursor: pointer; }
+        #payment-message { color: #1a1a1a; display: none; }
+        .spinner { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Stripe Payment Demo</h1>
+    <form id="payment-form">
+        <input type="number" id="amount" placeholder="Amount in cents (e.g., 2000 for $20.00)" required>
+        <div id="card-element"></div>
+        <button id="submit">
+            <div class="spinner" id="spinner"></div>
+            <span id="button-text">Pay now</span>
+        </button>
+        <div id="payment-message"></div>
+    </form>
+
+    <script>
+        const stripe = Stripe('your_publishable_key_here'); // Replace with your Stripe publishable key
+        const elements = stripe.elements();
+        const cardElement = elements.create('card');
+        cardElement.mount('#card-element');
+
+        const form = document.getElementById('payment-form');
+        const amountInput = document.getElementById('amount');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = amountInput.value;
+
+            // Create PaymentIntent on the server
+            const response = await fetch('/api/payments/create-payment-intent', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `amount=${amount}`
+            });
+
+            const clientSecret = await response.text();
+
+            // Confirm the payment with Stripe.js
+            const result = await stripe.confirmCardPayment(clientSecret, {
+                payment_method: {
+                    card: cardElement,
+                }
+            });
+
+            if (result.error) {
+                document.getElementById('payment-message').textContent = result.error.message;
+                document.getElementById('payment-message').style.display = 'block';
+            } else {
+                if (result.paymentIntent.status === 'succeeded') {
+                    document.getElementById('payment-message').textContent = 'Payment successful!';
+                    document.getElementById('payment-message').style.display = 'block';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
