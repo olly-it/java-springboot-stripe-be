@@ -58,8 +58,7 @@
         <h3>Subscribe to a Plan</h3>
         <input type="email" id="email" placeholder="Email address" required>
         <select id="price-id" required>
-            <option value="your_product_price_id_1">Basic Plan ($10/month)</option>
-            <option value="your_product_price_id_2">Premium Plan ($20/month)</option>
+            <!-- Options will be populated dynamically -->
         </select>
         <div>
             <label>Card Details</label>
@@ -73,10 +72,22 @@
     </form>
 
     <script>
-    	const stripe = Stripe('your_publishable_key_here'); // Replace with your Stripe publishable key
-        const elements = stripe.elements();
-        const cardElement = elements.create('card');
-        cardElement.mount('#card-element');
+        // Load configuration from backend
+        async function initializeStripe() {
+            const response = await fetch('/api/config/stripe');
+            const config = await response.json();
+            
+            // Populate price options
+            const priceSelect = document.getElementById('price-id');
+            priceSelect.innerHTML = `
+                <option value="${config.prices.basic}">Basic Plan ($10/month)</option>
+                <option value="${config.prices.premium}">Premium Plan ($20/month)</option>
+            `;
+            
+            const stripe = Stripe(config.publishableKey);
+            const elements = stripe.elements();
+            const cardElement = elements.create('card');
+            cardElement.mount('#card-element');
 
         const form = document.getElementById('subscription-form');
         const submitButton = document.getElementById('submit-button');
@@ -151,6 +162,9 @@
                 showMessage('', '');
             }
         });
+        }
+
+        initializeStripe();
     </script>
 </body>
 </html>
