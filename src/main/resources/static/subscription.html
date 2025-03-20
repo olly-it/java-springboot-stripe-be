@@ -64,15 +64,11 @@
             <label>Card Details</label>
             <div id="card-element"></div>
         </div>
-        <button type="submit" id="submit-button">
-            <span id="button-text">Subscribe Now</span>
-            <span id="spinner" style="display:none;">Processing...</span>
-        </button>
+        <button type="submit" id="submit-button">Subscribe Now</button>
         <div id="subscription-message" class="message"></div>
     </form>
 
     <script>
-        // Load configuration from backend
         async function initializeStripe() {
             const response = await fetch('/api/config/stripe');
             const config = await response.json();
@@ -88,80 +84,76 @@
             const elements = stripe.elements();
             const cardElement = elements.create('card');
             cardElement.mount('#card-element');
+            
+            const form = document.getElementById('subscription-form');
+            const submitButton = document.getElementById('submit-button');
+            const messageElement = document.getElementById('subscription-message');
 
-        const form = document.getElementById('subscription-form');
-        const submitButton = document.getElementById('submit-button');
-        const messageElement = document.getElementById('subscription-message');
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                submitButton.textContent = 'Processing...';
+                submitButton.disabled = true;
 
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            setLoading(true);
+                try {
+                    const { paymentMethod, error } = await stripe.createPaymentMethod({
+                        type: 'card',
+                        card: cardElement,
+                    });
 
-            try {
-                const { paymentMethod, error } = await stripe.createPaymentMethod({
-                    type: 'card',
-                    card: cardElement,
-                });
-
-                if (error) {
-                    throw new Error(error.message);
-                }
-
-                const response = await fetch('/api/subscriptions/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({
-                        email: document.getElementById('email').value,
-                        priceId: document.getElementById('price-id').value,
-                        paymentMethodId: paymentMethod.id
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-
-                if (result.requiresAction) {
-                    const { error: confirmError } = await stripe.confirmCardPayment(
-                        result.clientSecret
-                    );
-                    if (confirmError) {
-                        throw new Error(confirmError.message);
+                    if (error) {
+                        throw new Error(error.message);
                     }
+
+                    const response = await fetch('/api/subscriptions/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({
+                            email: document.getElementById('email').value,
+                            priceId: document.getElementById('price-id').value,
+                            paymentMethodId: paymentMethod.id
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.error) {
+                        throw new Error(result.error);
+                    }
+
+                    if (result.requiresAction) {
+                        const { error: confirmError } = await stripe.confirmCardPayment(
+                            result.clientSecret
+                        );
+                        if (confirmError) {
+                            throw new Error(confirmError.message);
+                        }
+                    }
+
+                    showMessage('Subscription successful!', 'success');
+                    form.reset();
+                    cardElement.clear();
+
+                } catch (error) {
+                    showMessage(error.message, 'error');
                 }
 
-                showMessage('Subscription successful! Thank you for subscribing.', 'success');
-                form.reset();
-                cardElement.clear();
+                submitButton.textContent = 'Subscribe Now';
+                submitButton.disabled = false;
+            });
 
-            } catch (error) {
-                showMessage(error.message, 'error');
+            function showMessage(message, type) {
+                messageElement.textContent = message;
+                messageElement.className = `message ${type}`;
+                messageElement.style.display = 'block';
             }
 
-            setLoading(false);
-        });
-
-        function setLoading(isLoading) {
-            submitButton.disabled = isLoading;
-            document.getElementById('button-text').style.display = isLoading ? 'none' : 'block';
-            document.getElementById('spinner').style.display = isLoading ? 'block' : 'none';
-        }
-
-        function showMessage(message, type) {
-            messageElement.textContent = message;
-            messageElement.className = `message ${type}`;
-            messageElement.style.display = 'block';
-        }
-
-        cardElement.addEventListener('change', ({error}) => {
-            if (error) {
-                showMessage(error.message, 'error');
-            } else {
-                showMessage('', '');
-            }
-        });
+            cardElement.addEventListener('change', ({error}) => {
+                if (error) {
+                    showMessage(error.message, 'error');
+                } else {
+                    showMessage('', '');
+                }
+            });
         }
 
         initializeStripe();
