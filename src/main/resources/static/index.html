@@ -44,6 +44,11 @@
             border-radius: 4px;
             margin-right: 10px;
         }
+        button:disabled {
+            background-color: #93989e;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
@@ -98,17 +103,18 @@
 
                     if (result.error) {
                         showMessage(result.error.message, 'error');
+                        submitButton.disabled = false;  // Re-enable only on error
                     } else if (result.paymentIntent.status === 'succeeded') {
                         showMessage('Payment successful!', 'success');
-                        form.reset();
-                        cardElement.clear();
+                        // Button stays disabled after success
                     }
                 } catch (error) {
                     showMessage(error.message, 'error');
+                    submitButton.disabled = false;  // Re-enable only on error
                 }
 
                 submitButton.textContent = 'Pay Now';
-                submitButton.disabled = false;
+                // Removed the submitButton.disabled = false from here
             });
 
             function showMessage(message, type) {
@@ -116,6 +122,21 @@
                 messageElement.textContent = message;
                 messageElement.className = `message ${type}`;
                 messageElement.style.display = 'block';
+
+                if (type === 'success') {
+                    submitButton.disabled = true;  // Disable main button after success
+                    const doneButton = document.createElement('button');
+                    doneButton.textContent = 'Start New Payment';
+                    doneButton.style.marginTop = '10px';
+                    doneButton.onclick = () => {
+                        form.reset();
+                        cardElement.clear();
+                        messageElement.style.display = 'none';
+                        messageElement.removeChild(doneButton);
+                        submitButton.disabled = false;  // Re-enable main button
+                    };
+                    messageElement.appendChild(doneButton);
+                }
             }
 
             cardElement.addEventListener('change', ({error}) => {
